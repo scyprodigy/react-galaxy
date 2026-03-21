@@ -3,13 +3,11 @@
 > A React component dependency visualizer that turns your codebase into an interactive galaxy.  
 > 一個將 React 元件依賴關係轉化為「星系圖」的可視化工具。
 
-[🚀 Live Demo](https://<你的用戶名>.github.io/react-galaxy/)
+[🚀 Live Demo](https://scyprodigy.github.io/react-galaxy/)
 
 ---
 
 ## 🖼️ Preview | 預覽
-
-![Galaxy Graph](./docs/screenshot-placeholder.png)
 
 > 實際展示：12 個元件的依賴關係，節點大小代表程式碼行數，連線表示依賴方向。
 
@@ -74,12 +72,15 @@ json
     "dependencies": ["Header", "MainContent", "Footer"]
   }
 ]
+
 🛠️ Development | 開發方式
 bash
 git clone https://github.com/<你的用戶名>/react-galaxy.git
 cd react-galaxy
 npm install
 npm link          # 將指令 `galaxy` 連結到全域
+
+
 🚀 Deploy to GitHub Pages | 部署到 GitHub Pages
 我們已將靜態展示檔案放在 docs/ 目錄下，只需在 GitHub 倉庫設定中開啟 Pages：
 
@@ -89,7 +90,7 @@ Branch: main，Folder: /docs
 
 點擊 Save
 
-稍候一分鐘，即可透過 https://<你的用戶名>.github.io/react-galaxy/ 訪問線上展示。
+稍候一分鐘，即可透過 https://[yourName].github.io/react-galaxy/ 訪問線上展示。
 
 🤝 Contributing | 貢獻指南
 歡迎任何形式的貢獻 🙌
