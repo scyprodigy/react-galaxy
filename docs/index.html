@@ -49,24 +49,26 @@
     fetch('./galaxy.json')
         .then(res => res.json())
         .then(data => {
-            // 建構節點與邊
             const nodes = [];
             const edges = [];
             const nodeMap = new Map();
 
             data.forEach(comp => {
                 const id = comp.name;
+                // 根據依賴數量計算色相：依賴 0 → 綠色 (120)，依賴 ≥6 → 紅色 (0)
+                const maxDeps = 6;
+                const deps = Math.min(comp.dependencies.length, maxDeps);
+                const hue = 120 - (deps / maxDeps) * 120;
                 nodeMap.set(id, {
                     id: id,
                     label: comp.name,
                     title: `路徑: ${comp.path}\n行數: ${comp.lines}\n依賴: ${comp.dependencies.join(', ') || '無'}`,
-                    value: comp.lines, // 大小依據行數
-                    // 根據依賴數量設定顏色（越紅表示越多依賴）
+                    value: comp.lines,
                     color: {
-                        background: `hsl(${Math.min(30, comp.dependencies.length * 8)}, 70%, 55%)`,
+                        background: `hsl(${hue}, 70%, 55%)`,
                         border: '#ffffff',
                         highlight: {
-                            background: '#ffaa66',
+                            background: `hsl(${hue}, 80%, 65%)`,
                             border: '#ffcc88'
                         }
                     }
