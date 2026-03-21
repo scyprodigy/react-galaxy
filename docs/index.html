@@ -52,6 +52,55 @@
         .controls button:hover {
             background: #2d3e4e;
         }
+        .fixed-list {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.8);
+            backdrop-filter: blur(8px);
+            border-radius: 12px;
+            padding: 12px 16px;
+            min-width: 180px;
+            max-width: 260px;
+            color: #ccc;
+            font-size: 11px;
+            font-family: monospace;
+            border: 1px solid #2a3a4a;
+            z-index: 30;
+            pointer-events: auto;
+        }
+        .fixed-list h4 {
+            margin: 0 0 8px 0;
+            font-size: 12px;
+            color: #88aaff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .fixed-list ul {
+            margin: 0;
+            padding-left: 16px;
+            list-style: none;
+        }
+        .fixed-list li {
+            margin: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        .fixed-list li:hover {
+            color: white;
+            text-decoration: underline;
+        }
+        .fixed-list .unpin-btn {
+            background: none;
+            border: none;
+            color: #ff8888;
+            cursor: pointer;
+            font-size: 10px;
+            margin-left: 8px;
+        }
         .status {
             position: absolute;
             bottom: 20px;
@@ -75,9 +124,15 @@
     <button id="relayoutBtn">✨ 重新布局</button>
     <button id="togglePhysicsBtn">⏸️ 停止物理</button>
 </div>
+<div class="fixed-list" id="fixedList">
+    <h4>📍 固定節點</h4>
+    <ul id="fixedListItems">
+        <li style="color:#666">尚無固定節點</li>
+    </ul>
+</div>
 <div class="info-panel" id="infoPanel">
     <h4>🌌 點擊節點</h4>
-    <p>點擊任意元件查看詳細資訊</p>
+    <p>點擊任意元件查看詳細資訊<br>右鍵可固定/解除固定</p>
 </div>
 <div class="status" id="statusMsg">
     🧠 節點大小 = 行數 | 顏色越紅 = 依賴越多
@@ -88,6 +143,60 @@
     let physicsEnabled = true;
     let nodesDataSet = null;
     let edgesDataSet = null;
+
+    // 更新固定節點列表
+    function updateFixedList() {
+        const nodes = nodesDataSet.get();
+        const fixedNodes = nodes.filter(n => n.fixed === true);
+        const listContainer = document.getElementById('fixedListItems');
+        if (fixedNodes.length === 0) {
+            listContainer.innerHTML = '<li style="color:#666">尚無固定節點</li>';
+            return;
+        }
+        listContainer.innerHTML = fixedNodes.map(node => `
+            <li data-node-id="${node.id}">
+                <span>🔒 ${node.label}</span>
+                <button class="unpin-btn" data-node-id="${node.id}">解除</button>
+            </li>
+        `).join('');
+        // 綁定解除按鈕事件
+        document.querySelectorAll('.unpin-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const nodeId = btn.getAttribute('data-node-id');
+                unpinNode(nodeId);
+            });
+        });
+    }
+
+    // 解除固定節點
+    function unpinNode(nodeId) {
+        nodesDataSet.update({ id: nodeId, fixed: false, physics: true });
+        // 如果物理原本關閉，則保持關閉，但節點固定屬性已移除
+        if (!physicsEnabled) {
+            // 若物理已關閉，解除固定的節點應仍不移動（整體物理關閉）
+            // 但為了體驗，不做額外處理
+        }
+        updateFixedList();
+        document.getElementById('statusMsg').innerHTML = `🔓 已解除固定 ${nodeId}`;
+        setTimeout(() => {
+            if (document.getElementById('statusMsg').innerHTML.includes('解除固定')) {
+                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+            }
+        }, 2000);
+    }
+
+    // 固定節點
+    function pinNode(nodeId) {
+        nodesDataSet.update({ id: nodeId, fixed: true, physics: false });
+        updateFixedList();
+        document.getElementById('statusMsg').innerHTML = `📍 已固定 ${nodeId}`;
+        setTimeout(() => {
+            if (document.getElementById('statusMsg').innerHTML.includes('固定')) {
+                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+            }
+        }, 2000);
+    }
 
     fetch('./galaxy.json')
         .then(res => res.json())
@@ -106,7 +215,6 @@
 
             data.forEach(comp => {
                 const id = comp.name;
-                // 顏色：依賴數 0 → 綠色(120)，最大依賴 → 紅色(0)
                 const deps = comp.dependencies.length;
                 const hue = 120 - (deps / maxDeps) * 120;
                 nodeMap.set(id, {
@@ -122,7 +230,6 @@
                             border: '#ffcc88'
                         }
                     },
-                    // 用於右鍵固定
                     fixed: false
                 });
             });
@@ -176,7 +283,7 @@
             };
             network = new vis.Network(container, { nodes: nodesDataSet, edges: edgesDataSet }, options);
 
-            // 穩定後稍微降低物理強度，減少蠕動
+            // 穩定後稍微降低物理強度
             network.once('stabilizationIterationsDone', () => {
                 network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
                 document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
@@ -194,26 +301,20 @@
                         <p><strong>行數：</strong>${node.value}</p>
                         <p><strong>依賴：</strong>${depsList.join(', ') || '無'}</p>
                     `;
-                } else {
-                    // 點空白處可清空面板（可選）
-                    // document.getElementById('infoPanel').innerHTML = `<h4>🌌 點擊節點</h4><p>點擊任意元件查看詳細資訊</p>`;
                 }
             });
 
-            // ===== 右鍵固定節點 =====
+            // ===== 右鍵固定/解除固定節點 =====
             network.on('oncontext', (params) => {
                 params.event.preventDefault();
                 if (params.nodes.length) {
                     const nodeId = params.nodes[0];
                     const node = nodesDataSet.get(nodeId);
-                    const newFixed = !node.fixed;
-                    nodesDataSet.update({ id: nodeId, fixed: newFixed, physics: !newFixed });
-                    document.getElementById('statusMsg').innerHTML = newFixed ? `📍 已固定 ${nodeId}，可拖曳其他節點` : `🔓 已解除固定 ${nodeId}`;
-                    setTimeout(() => {
-                        if (document.getElementById('statusMsg').innerHTML.includes('固定')) {
-                            document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
-                        }
-                    }, 2000);
+                    if (node.fixed) {
+                        unpinNode(nodeId);
+                    } else {
+                        pinNode(nodeId);
+                    }
                 }
                 return false;
             });
@@ -225,6 +326,7 @@
                 setTimeout(() => document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點', 1500);
             };
             document.getElementById('relayoutBtn').onclick = () => {
+                // 暫時保留所有固定節點，但重置物理位置
                 network.setOptions({ physics: { enabled: true } });
                 network.stabilize();
                 document.getElementById('statusMsg').innerHTML = '🌀 重新布局中...';
@@ -244,6 +346,9 @@
                     }
                 }, 2000);
             };
+
+            // 初始化固定列表
+            updateFixedList();
         })
         .catch(err => {
             console.error(err);
