@@ -7,25 +7,8 @@
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a1a; overflow: hidden; }
         #network { width: 100vw; height: 100vh; background: #0a0a1a; }
-        .info-panel {
-            position: absolute;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.85);
-            color: #eee;
-            padding: 12px 18px;
-            border-radius: 12px;
-            font-size: 12px;
-            font-family: monospace;
-            max-width: 320px;
-            backdrop-filter: blur(4px);
-            border-left: 4px solid #38bdf8;
-            pointer-events: none;
-            z-index: 20;
-            transition: 0.2s;
-        }
-        .info-panel h4 { margin: 0 0 6px 0; color: #88aaff; }
-        .info-panel p { margin: 4px 0; word-break: break-word; }
+        
+        /* 控制按鈕群組 */
         .controls {
             position: absolute;
             top: 20px;
@@ -34,6 +17,7 @@
             padding: 8px 12px;
             border-radius: 8px;
             display: flex;
+            flex-wrap: wrap;
             gap: 10px;
             z-index: 30;
             backdrop-filter: blur(4px);
@@ -52,6 +36,8 @@
         .controls button:hover {
             background: #2d3e4e;
         }
+        
+        /* 固定節點列表 - 預設右上，手機版改為底部可折疊 */
         .fixed-list {
             position: absolute;
             top: 20px;
@@ -68,6 +54,7 @@
             border: 1px solid #2a3a4a;
             z-index: 30;
             pointer-events: auto;
+            transition: all 0.2s ease;
         }
         .fixed-list h4 {
             margin: 0 0 8px 0;
@@ -76,11 +63,19 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            cursor: pointer;
+            user-select: none;
+        }
+        .fixed-list h4 .toggle-icon {
+            font-size: 12px;
+            margin-left: 8px;
         }
         .fixed-list ul {
             margin: 0;
             padding-left: 16px;
             list-style: none;
+            max-height: 200px;
+            overflow-y: auto;
         }
         .fixed-list li {
             margin: 6px 0;
@@ -101,6 +96,28 @@
             font-size: 10px;
             margin-left: 8px;
         }
+        
+        /* 資訊面板 */
+        .info-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            color: #eee;
+            padding: 12px 18px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-family: monospace;
+            max-width: 320px;
+            backdrop-filter: blur(4px);
+            border-left: 4px solid #38bdf8;
+            pointer-events: none;
+            z-index: 20;
+            transition: 0.2s;
+        }
+        .info-panel h4 { margin: 0 0 6px 0; color: #88aaff; }
+        .info-panel p { margin: 4px 0; word-break: break-word; }
+        
         .status {
             position: absolute;
             bottom: 20px;
@@ -114,6 +131,50 @@
             pointer-events: none;
             z-index: 20;
         }
+        
+        /* 響應式：手機版調整佈局 */
+        @media (max-width: 768px) {
+            .controls {
+                top: 10px;
+                left: 10px;
+                padding: 6px 10px;
+                gap: 6px;
+            }
+            .controls button {
+                padding: 3px 8px;
+                font-size: 10px;
+            }
+            .fixed-list {
+                top: auto;
+                bottom: 10px;
+                right: 10px;
+                left: 10px;
+                max-width: none;
+                min-width: auto;
+                padding: 8px 12px;
+                border-radius: 8px;
+            }
+            .fixed-list h4 {
+                font-size: 11px;
+                margin-bottom: 4px;
+            }
+            .fixed-list ul {
+                max-height: 150px;
+            }
+            .info-panel {
+                bottom: 10px;
+                left: 10px;
+                right: auto;
+                max-width: calc(100% - 20px);
+                font-size: 10px;
+                padding: 8px 12px;
+            }
+            .status {
+                bottom: 10px;
+                left: 10px;
+                font-size: 8px;
+            }
+        }
     </style>
     <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
 </head>
@@ -125,7 +186,7 @@
     <button id="togglePhysicsBtn">⏸️ 停止物理</button>
 </div>
 <div class="fixed-list" id="fixedList">
-    <h4>📍 固定節點</h4>
+    <h4 id="fixedListHeader">📍 固定節點 <span class="toggle-icon">▼</span></h4>
     <ul id="fixedListItems">
         <li style="color:#666">尚無固定節點</li>
     </ul>
@@ -144,7 +205,29 @@
     let nodesDataSet = null;
     let edgesDataSet = null;
 
-    // 更新固定節點列表
+    // 折疊固定列表（手機上用）
+    let fixedListCollapsed = false;
+    const fixedListEl = document.getElementById('fixedList');
+    const fixedListHeader = document.getElementById('fixedListHeader');
+    const fixedListItemsContainer = document.getElementById('fixedListItems');
+    function toggleFixedList() {
+        fixedListCollapsed = !fixedListCollapsed;
+        if (fixedListCollapsed) {
+            fixedListItemsContainer.style.display = 'none';
+            fixedListHeader.querySelector('.toggle-icon').innerHTML = '▶';
+        } else {
+            fixedListItemsContainer.style.display = 'block';
+            fixedListHeader.querySelector('.toggle-icon').innerHTML = '▼';
+        }
+    }
+    fixedListHeader.addEventListener('click', toggleFixedList);
+    // 預設在手機上折疊
+    if (window.innerWidth <= 768) {
+        fixedListCollapsed = true;
+        fixedListItemsContainer.style.display = 'none';
+        fixedListHeader.querySelector('.toggle-icon').innerHTML = '▶';
+    }
+
     function updateFixedList() {
         const nodes = nodesDataSet.get();
         const fixedNodes = nodes.filter(n => n.fixed === true);
@@ -159,7 +242,6 @@
                 <button class="unpin-btn" data-node-id="${node.id}">解除</button>
             </li>
         `).join('');
-        // 綁定解除按鈕事件
         document.querySelectorAll('.unpin-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -169,14 +251,8 @@
         });
     }
 
-    // 解除固定節點
     function unpinNode(nodeId) {
         nodesDataSet.update({ id: nodeId, fixed: false, physics: true });
-        // 如果物理原本關閉，則保持關閉，但節點固定屬性已移除
-        if (!physicsEnabled) {
-            // 若物理已關閉，解除固定的節點應仍不移動（整體物理關閉）
-            // 但為了體驗，不做額外處理
-        }
         updateFixedList();
         document.getElementById('statusMsg').innerHTML = `🔓 已解除固定 ${nodeId}`;
         setTimeout(() => {
@@ -186,7 +262,6 @@
         }, 2000);
     }
 
-    // 固定節點
     function pinNode(nodeId) {
         nodesDataSet.update({ id: nodeId, fixed: true, physics: false });
         updateFixedList();
@@ -201,12 +276,10 @@
     fetch('./galaxy.json')
         .then(res => res.json())
         .then(data => {
-            // 構建節點與邊
             const nodes = [];
             const edges = [];
             const nodeMap = new Map();
 
-            // 找出最大依賴數，用於顏色範圍
             let maxDeps = 0;
             data.forEach(comp => {
                 maxDeps = Math.max(maxDeps, comp.dependencies.length);
@@ -283,13 +356,11 @@
             };
             network = new vis.Network(container, { nodes: nodesDataSet, edges: edgesDataSet }, options);
 
-            // 穩定後稍微降低物理強度
             network.once('stabilizationIterationsDone', () => {
                 network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
                 document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
             });
 
-            // ===== 點擊節點顯示詳細資訊 =====
             network.on('click', (params) => {
                 if (params.nodes.length) {
                     const nodeId = params.nodes[0];
@@ -304,7 +375,6 @@
                 }
             });
 
-            // ===== 右鍵固定/解除固定節點 =====
             network.on('oncontext', (params) => {
                 params.event.preventDefault();
                 if (params.nodes.length) {
@@ -319,14 +389,12 @@
                 return false;
             });
 
-            // ===== 控制按鈕 =====
             document.getElementById('resetViewBtn').onclick = () => {
                 network.fit();
                 document.getElementById('statusMsg').innerHTML = '👁️ 視角已重置';
                 setTimeout(() => document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點', 1500);
             };
             document.getElementById('relayoutBtn').onclick = () => {
-                // 暫時保留所有固定節點，但重置物理位置
                 network.setOptions({ physics: { enabled: true } });
                 network.stabilize();
                 document.getElementById('statusMsg').innerHTML = '🌀 重新布局中...';
@@ -347,7 +415,6 @@
                 }, 2000);
             };
 
-            // 初始化固定列表
             updateFixedList();
         })
         .catch(err => {
