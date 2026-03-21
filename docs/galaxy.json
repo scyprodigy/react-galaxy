@@ -1,0 +1,100 @@
+[
+  {
+    "name": "App",
+    "path": "../demo-project/src/App.jsx",
+    "lines": 15,
+    "dependencies": [
+      "Footer",
+      "Header",
+      "MainContent",
+      "Sidebar"
+    ]
+  },
+  {
+    "name": "Button",
+    "path": "../demo-project/src/components/Button.jsx",
+    "lines": 11,
+    "dependencies": []
+  },
+  {
+    "name": "Card",
+    "path": "../demo-project/src/components/Card.jsx",
+    "lines": 14,
+    "dependencies": [
+      "Button",
+      "Icon"
+    ]
+  },
+  {
+    "name": "Footer",
+    "path": "../demo-project/src/components/Footer.jsx",
+    "lines": 13,
+    "dependencies": []
+  },
+  {
+    "name": "Header",
+    "path": "../demo-project/src/components/Header.jsx",
+    "lines": 10,
+    "dependencies": [
+      "Logo",
+      "NavBar",
+      "UserMenu"
+    ]
+  },
+  {
+    "name": "Icon",
+    "path": "../demo-project/src/components/Icon.jsx",
+    "lines": 8,
+    "dependencies": []
+  },
+  {
+    "name": "Logo",
+    "path": "../demo-project/src/components/Logo.jsx",
+    "lines": 8,
+    "dependencies": []
+  },
+  {
+    "name": "MainContent",
+    "path": "../demo-project/src/components/MainContent.jsx",
+    "lines": 33,
+    "dependencies": [
+      "Button",
+      "Card",
+      "Modal"
+    ]
+  },
+  {
+    "name": "Modal",
+    "path": "../demo-project/src/components/Modal.jsx",
+    "lines": 18,
+    "dependencies": [
+      "Button",
+      "Icon"
+    ]
+  },
+  {
+    "name": "NavBar",
+    "path": "../demo-project/src/components/NavBar.jsx",
+    "lines": 12,
+    "dependencies": [
+      "Icon"
+    ]
+  },
+  {
+    "name": "Sidebar",
+    "path": "../demo-project/src/components/Sidebar.jsx",
+    "lines": 20,
+    "dependencies": [
+      "Icon"
+    ]
+  },
+  {
+    "name": "UserMenu",
+    "path": "../demo-project/src/components/UserMenu.jsx",
+    "lines": 20,
+    "dependencies": [
+      "Button",
+      "Icon"
+    ]
+  }
+]

@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>React Galaxy - 元件依賴星系</title>
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a1a; overflow: hidden; }
+        #network { width: 100vw; height: 100vh; background: #0a0a1a; }
+        .info {
+            position: absolute;
+            bottom: 15px;
+            left: 15px;
+            background: rgba(0,0,0,0.75);
+            color: #ccc;
+            padding: 8px 15px;
+            border-radius: 8px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 10;
+            backdrop-filter: blur(4px);
+            font-family: monospace;
+        }
+        .controls {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0,0,0,0.6);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: white;
+            font-size: 11px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+    <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
+</head>
+<body>
+<div id="network"></div>
+<div class="info">
+    🌌 React Galaxy | 節點大小 = 行數 | 邊 = 依賴關係 | 顏色越紅 = 依賴越多
+</div>
+<div class="controls">
+    🖱️ 拖曳移動 | 滾輪縮放 | 點擊節點查看詳情
+</div>
+<script>
+    fetch('./galaxy.json')
+        .then(res => res.json())
+        .then(data => {
+            // 建構節點與邊
+            const nodes = [];
+            const edges = [];
+            const nodeMap = new Map();
+
+            data.forEach(comp => {
+                const id = comp.name;
+                nodeMap.set(id, {
+                    id: id,
+                    label: comp.name,
+                    title: `路徑: ${comp.path}\n行數: ${comp.lines}\n依賴: ${comp.dependencies.join(', ') || '無'}`,
+                    value: comp.lines, // 大小依據行數
+                    // 根據依賴數量設定顏色（越紅表示越多依賴）
+                    color: {
+                        background: `hsl(${Math.min(30, comp.dependencies.length * 8)}, 70%, 55%)`,
+                        border: '#ffffff',
+                        highlight: {
+                            background: '#ffaa66',
+                            border: '#ffcc88'
+                        }
+                    }
+                });
+            });
+
+            for (let node of nodeMap.values()) {
+                nodes.push(node);
+            }
+
+            data.forEach(comp => {
+                const from = comp.name;
+                comp.dependencies.forEach(to => {
+                    if (nodeMap.has(to)) {
+                        edges.push({ from, to, arrows: 'to', smooth: { type: 'curvedCW' }, color: { color: '#88aaff' } });
+                    }
+                });
+            });
+
+            const container = document.getElementById('network');
+            const options = {
+                nodes: {
+                    shape: 'dot',
+                    scaling: {
+                        min: 12,
+                        max: 70,
+                        label: { enabled: true, min: 12, max: 28 }
+                    },
+                    font: { color: '#ffffff', size: 14, face: 'monospace', strokeWidth: 1, strokeColor: '#000000' },
+                    borderWidth: 2,
+                    shadow: true
+                },
+                edges: {
+                    width: 2,
+                    smooth: { type: 'continuous', roundness: 0.5 },
+                    arrows: { to: { enabled: true, scaleFactor: 0.8 } }
+                },
+                physics: {
+                    stabilization: { iterations: 200 },
+                    barnesHut: { gravitationalConstant: -6000, centralGravity: 0.2, springLength: 180 }
+                },
+                interaction: {
+                    hover: true,
+                    tooltipDelay: 200,
+                    zoomView: true,
+                    dragView: true
+                }
+            };
+            const network = new vis.Network(container, { nodes, edges }, options);
+        })
+        .catch(err => {
+            console.error(err);
+            document.body.innerHTML = '<div style="color:red;padding:20px;text-align:center">❌ 無法載入 galaxy.json，請確認檔案存在且格式正確。</div>';
+        });
+</script>
+</body>
+</html>
