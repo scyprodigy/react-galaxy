@@ -7,57 +7,107 @@
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a1a; overflow: hidden; }
         #network { width: 100vw; height: 100vh; background: #0a0a1a; }
-        .info {
+        .info-panel {
             position: absolute;
-            bottom: 15px;
-            left: 15px;
-            background: rgba(0,0,0,0.75);
-            color: #ccc;
-            padding: 8px 15px;
-            border-radius: 8px;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.85);
+            color: #eee;
+            padding: 12px 18px;
+            border-radius: 12px;
             font-size: 12px;
-            pointer-events: none;
-            z-index: 10;
-            backdrop-filter: blur(4px);
             font-family: monospace;
+            max-width: 320px;
+            backdrop-filter: blur(4px);
+            border-left: 4px solid #38bdf8;
+            pointer-events: none;
+            z-index: 20;
+            transition: 0.2s;
         }
+        .info-panel h4 { margin: 0 0 6px 0; color: #88aaff; }
+        .info-panel p { margin: 4px 0; word-break: break-word; }
         .controls {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            background: rgba(0,0,0,0.6);
+            top: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.7);
             padding: 8px 12px;
             border-radius: 8px;
+            display: flex;
+            gap: 10px;
+            z-index: 30;
+            backdrop-filter: blur(4px);
+        }
+        .controls button {
+            background: #1e2a3a;
+            border: none;
             color: white;
-            font-size: 11px;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: monospace;
+            transition: 0.1s;
+        }
+        .controls button:hover {
+            background: #2d3e4e;
+        }
+        .status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0,0,0,0.5);
+            color: #aaa;
+            font-size: 10px;
+            padding: 4px 8px;
+            border-radius: 6px;
             font-family: monospace;
             pointer-events: none;
-            z-index: 10;
+            z-index: 20;
         }
     </style>
     <script type="text/javascript" src="https://unpkg.com/vis-network@9.1.2/dist/vis-network.min.js"></script>
 </head>
 <body>
 <div id="network"></div>
-<div class="info">
-    🌌 React Galaxy | 節點大小 = 行數 | 邊 = 依賴關係 | 顏色越紅 = 依賴越多
-</div>
 <div class="controls">
-    🖱️ 拖曳移動 | 滾輪縮放 | 點擊節點查看詳情
+    <button id="resetViewBtn">🔄 重置視角</button>
+    <button id="relayoutBtn">✨ 重新布局</button>
+    <button id="togglePhysicsBtn">⏸️ 停止物理</button>
 </div>
+<div class="info-panel" id="infoPanel">
+    <h4>🌌 點擊節點</h4>
+    <p>點擊任意元件查看詳細資訊</p>
+</div>
+<div class="status" id="statusMsg">
+    🧠 節點大小 = 行數 | 顏色越紅 = 依賴越多
+</div>
+
 <script>
+    let network = null;
+    let physicsEnabled = true;
+    let nodesDataSet = null;
+    let edgesDataSet = null;
+
     fetch('./galaxy.json')
         .then(res => res.json())
         .then(data => {
+            // 構建節點與邊
             const nodes = [];
             const edges = [];
             const nodeMap = new Map();
 
+            // 找出最大依賴數，用於顏色範圍
+            let maxDeps = 0;
+            data.forEach(comp => {
+                maxDeps = Math.max(maxDeps, comp.dependencies.length);
+            });
+            if (maxDeps === 0) maxDeps = 1;
+
             data.forEach(comp => {
                 const id = comp.name;
-                // 根據依賴數量計算色相：依賴 0 → 綠色 (120)，依賴 ≥6 → 紅色 (0)
-                const maxDeps = 6;
-                const deps = Math.min(comp.dependencies.length, maxDeps);
+                // 顏色：依賴數 0 → 綠色(120)，最大依賴 → 紅色(0)
+                const deps = comp.dependencies.length;
                 const hue = 120 - (deps / maxDeps) * 120;
                 nodeMap.set(id, {
                     id: id,
@@ -71,7 +121,9 @@
                             background: `hsl(${hue}, 80%, 65%)`,
                             border: '#ffcc88'
                         }
-                    }
+                    },
+                    // 用於右鍵固定
+                    fixed: false
                 });
             });
 
@@ -87,6 +139,9 @@
                     }
                 });
             });
+
+            nodesDataSet = new vis.DataSet(nodes);
+            edgesDataSet = new vis.DataSet(edges);
 
             const container = document.getElementById('network');
             const options = {
@@ -107,17 +162,88 @@
                     arrows: { to: { enabled: true, scaleFactor: 0.8 } }
                 },
                 physics: {
-                    stabilization: { iterations: 200 },
-                    barnesHut: { gravitationalConstant: -6000, centralGravity: 0.2, springLength: 180 }
+                    enabled: true,
+                    stabilization: { iterations: 300, fit: true },
+                    barnesHut: { gravitationalConstant: -6000, centralGravity: 0.2, springLength: 180, springConstant: 0.04, damping: 0.09 }
                 },
                 interaction: {
                     hover: true,
                     tooltipDelay: 200,
                     zoomView: true,
-                    dragView: true
+                    dragView: true,
+                    dragNodes: true
                 }
             };
-            const network = new vis.Network(container, { nodes, edges }, options);
+            network = new vis.Network(container, { nodes: nodesDataSet, edges: edgesDataSet }, options);
+
+            // 穩定後稍微降低物理強度，減少蠕動
+            network.once('stabilizationIterationsDone', () => {
+                network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
+                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+            });
+
+            // ===== 點擊節點顯示詳細資訊 =====
+            network.on('click', (params) => {
+                if (params.nodes.length) {
+                    const nodeId = params.nodes[0];
+                    const node = nodesDataSet.get(nodeId);
+                    const depsList = data.find(c => c.name === nodeId)?.dependencies || [];
+                    document.getElementById('infoPanel').innerHTML = `
+                        <h4>🔍 ${node.label}</h4>
+                        <p><strong>路徑：</strong>${node.title.split('\n')[0].replace('路徑: ', '')}</p>
+                        <p><strong>行數：</strong>${node.value}</p>
+                        <p><strong>依賴：</strong>${depsList.join(', ') || '無'}</p>
+                    `;
+                } else {
+                    // 點空白處可清空面板（可選）
+                    // document.getElementById('infoPanel').innerHTML = `<h4>🌌 點擊節點</h4><p>點擊任意元件查看詳細資訊</p>`;
+                }
+            });
+
+            // ===== 右鍵固定節點 =====
+            network.on('oncontext', (params) => {
+                params.event.preventDefault();
+                if (params.nodes.length) {
+                    const nodeId = params.nodes[0];
+                    const node = nodesDataSet.get(nodeId);
+                    const newFixed = !node.fixed;
+                    nodesDataSet.update({ id: nodeId, fixed: newFixed, physics: !newFixed });
+                    document.getElementById('statusMsg').innerHTML = newFixed ? `📍 已固定 ${nodeId}，可拖曳其他節點` : `🔓 已解除固定 ${nodeId}`;
+                    setTimeout(() => {
+                        if (document.getElementById('statusMsg').innerHTML.includes('固定')) {
+                            document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+                        }
+                    }, 2000);
+                }
+                return false;
+            });
+
+            // ===== 控制按鈕 =====
+            document.getElementById('resetViewBtn').onclick = () => {
+                network.fit();
+                document.getElementById('statusMsg').innerHTML = '👁️ 視角已重置';
+                setTimeout(() => document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點', 1500);
+            };
+            document.getElementById('relayoutBtn').onclick = () => {
+                network.setOptions({ physics: { enabled: true } });
+                network.stabilize();
+                document.getElementById('statusMsg').innerHTML = '🌀 重新布局中...';
+                network.once('stabilizationIterationsDone', () => {
+                    network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
+                    document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+                });
+            };
+            document.getElementById('togglePhysicsBtn').onclick = () => {
+                physicsEnabled = !physicsEnabled;
+                network.setOptions({ physics: { enabled: physicsEnabled } });
+                document.getElementById('togglePhysicsBtn').innerHTML = physicsEnabled ? '⏸️ 停止物理' : '▶️ 啟動物理';
+                document.getElementById('statusMsg').innerHTML = physicsEnabled ? '⚛️ 物理模擬已開啟' : '🔒 物理模擬已關閉，節點靜止';
+                setTimeout(() => {
+                    if (document.getElementById('statusMsg').innerHTML.includes('物理')) {
+                        document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+                    }
+                }, 2000);
+            };
         })
         .catch(err => {
             console.error(err);
