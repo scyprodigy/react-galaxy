@@ -37,7 +37,7 @@
             background: #2d3e4e;
         }
         
-        /* 固定節點列表 - 預設右上，手機版改為底部可折疊 */
+        /* 固定節點列表 - 右上，手機版改為底部可折疊 */
         .fixed-list {
             position: absolute;
             top: 20px;
@@ -97,26 +97,56 @@
             margin-left: 8px;
         }
         
-        /* 資訊面板 */
+        /* 資訊面板 - 可拖曳、可關閉 */
         .info-panel {
             position: absolute;
             bottom: 20px;
             right: 20px;
             background: rgba(0,0,0,0.85);
+            backdrop-filter: blur(8px);
             color: #eee;
             padding: 12px 18px;
             border-radius: 12px;
             font-size: 12px;
             font-family: monospace;
             max-width: 320px;
-            backdrop-filter: blur(4px);
             border-left: 4px solid #38bdf8;
-            pointer-events: none;
-            z-index: 20;
-            transition: 0.2s;
+            z-index: 40;
+            pointer-events: auto;
+            cursor: move;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+            transition: none;
         }
-        .info-panel h4 { margin: 0 0 6px 0; color: #88aaff; }
-        .info-panel p { margin: 4px 0; word-break: break-word; }
+        .info-panel.dragging {
+            opacity: 0.8;
+            cursor: grabbing;
+        }
+        .info-panel h4 {
+            margin: 0 0 6px 0;
+            color: #88aaff;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: default;
+        }
+        .info-panel .close-btn {
+            background: none;
+            border: none;
+            color: #aaa;
+            cursor: pointer;
+            font-size: 16px;
+            line-height: 1;
+            padding: 0 4px;
+            margin-left: 12px;
+        }
+        .info-panel .close-btn:hover {
+            color: white;
+        }
+        .info-panel p {
+            margin: 4px 0;
+            word-break: break-word;
+            cursor: default;
+        }
         
         .status {
             position: absolute;
@@ -162,12 +192,14 @@
                 max-height: 150px;
             }
             .info-panel {
-                bottom: 10px;
+                bottom: auto;
+                top: 10px;
+                right: 10px;
                 left: 10px;
-                right: auto;
                 max-width: calc(100% - 20px);
                 font-size: 10px;
                 padding: 8px 12px;
+                cursor: default;
             }
             .status {
                 bottom: 10px;
@@ -192,7 +224,7 @@
     </ul>
 </div>
 <div class="info-panel" id="infoPanel">
-    <h4>🌌 點擊節點</h4>
+    <h4>🌌 點擊節點 <button class="close-btn" id="closeInfoPanel">✕</button></h4>
     <p>點擊任意元件查看詳細資訊<br>右鍵可固定/解除固定</p>
 </div>
 <div class="status" id="statusMsg">
@@ -221,12 +253,56 @@
         }
     }
     fixedListHeader.addEventListener('click', toggleFixedList);
-    // 預設在手機上折疊
     if (window.innerWidth <= 768) {
         fixedListCollapsed = true;
         fixedListItemsContainer.style.display = 'none';
         fixedListHeader.querySelector('.toggle-icon').innerHTML = '▶';
     }
+
+    // 可拖曳資訊面板（桌面版）
+    const infoPanel = document.getElementById('infoPanel');
+    let isDragging = false;
+    let dragOffsetX = 0, dragOffsetY = 0;
+    function onMouseMove(e) {
+        if (!isDragging) return;
+        let left = e.clientX - dragOffsetX;
+        let top = e.clientY - dragOffsetY;
+        // 邊界限制
+        left = Math.min(window.innerWidth - infoPanel.offsetWidth - 10, Math.max(10, left));
+        top = Math.min(window.innerHeight - infoPanel.offsetHeight - 10, Math.max(10, top));
+        infoPanel.style.left = left + 'px';
+        infoPanel.style.top = top + 'px';
+        infoPanel.style.right = 'auto';
+        infoPanel.style.bottom = 'auto';
+    }
+    function onMouseUp() {
+        if (!isDragging) return;
+        isDragging = false;
+        document.removeEventListener('mousemove', onMouseMove);
+        document.removeEventListener('mouseup', onMouseUp);
+        infoPanel.classList.remove('dragging');
+    }
+    infoPanel.addEventListener('mousedown', (e) => {
+        // 避免點擊關閉按鈕時觸發拖曳
+        if (e.target.classList.contains('close-btn')) return;
+        isDragging = true;
+        const rect = infoPanel.getBoundingClientRect();
+        dragOffsetX = e.clientX - rect.left;
+        dragOffsetY = e.clientY - rect.top;
+        infoPanel.style.left = rect.left + 'px';
+        infoPanel.style.top = rect.top + 'px';
+        infoPanel.style.right = 'auto';
+        infoPanel.style.bottom = 'auto';
+        infoPanel.classList.add('dragging');
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+        e.preventDefault();
+    });
+    // 關閉面板
+    document.getElementById('closeInfoPanel').addEventListener('click', () => {
+        infoPanel.style.display = 'none';
+    });
+    // 可以增加一個重置顯示的方式，例如雙擊狀態欄重置，這裡先不處理
 
     function updateFixedList() {
         const nodes = nodesDataSet.get();
@@ -367,11 +443,17 @@
                     const node = nodesDataSet.get(nodeId);
                     const depsList = data.find(c => c.name === nodeId)?.dependencies || [];
                     document.getElementById('infoPanel').innerHTML = `
-                        <h4>🔍 ${node.label}</h4>
+                        <h4>🔍 ${node.label} <button class="close-btn" id="closeInfoPanel">✕</button></h4>
                         <p><strong>路徑：</strong>${node.title.split('\n')[0].replace('路徑: ', '')}</p>
                         <p><strong>行數：</strong>${node.value}</p>
                         <p><strong>依賴：</strong>${depsList.join(', ') || '無'}</p>
                     `;
+                    // 重新綁定關閉按鈕事件（因為面板內容被重寫）
+                    document.getElementById('closeInfoPanel').addEventListener('click', () => {
+                        infoPanel.style.display = 'none';
+                    });
+                    // 讓面板顯示（如果之前關閉了）
+                    infoPanel.style.display = 'block';
                 }
             });
 
