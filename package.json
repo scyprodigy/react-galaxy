@@ -1,10 +1,17 @@
 {
   "name": "react-galaxy",
   "version": "1.0.0",
+  "description": "Visualize React component dependencies as an interactive galaxy",
   "type": "module",
   "bin": {
     "galaxy": "./bin/galaxy.js"
   },
+  "files": [
+    "bin/",
+    "analyze-components.mjs",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "@babel/parser": "^7.23.0",
     "@babel/traverse": "^7.23.0",
