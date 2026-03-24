@@ -1,6 +1,6 @@
 {
   "name": "react-dep-galaxy",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Visualize React component dependencies as an interactive galaxy",
   "type": "module",
   "bin": {
