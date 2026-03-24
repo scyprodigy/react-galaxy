@@ -30,14 +30,14 @@
 ### Using npx (no install required)
 
 ```bash
-npx react-galaxy scan ./src
-npx react-galaxy view
+npx react-dep-galaxy scan ./src
+npx react-dep-galaxy view
 ```
 
 ### Global install
 
 ```bash
-npm install -g react-galaxy
+npm install -g react-dep-galaxy
 galaxy scan ./src
 galaxy view
 ```
@@ -99,7 +99,7 @@ Static demo files are located in the `docs/` directory. To publish:
 2. Set Branch: `main`, Folder: `/docs`
 3. Click **Save**
 
-Your demo will be live at `https://[yourName].github.io/react-galaxy/` within a minute.
+Your demo will be live at `https://<your gitHub username>.github.io/<your repository name>/` within a minute.
 
 ---
 

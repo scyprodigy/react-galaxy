@@ -3,12 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>React Galaxy - 元件依賴星系</title>
+    <title>React Galaxy - 元件依賴星系 / Component Dependency Galaxy</title>
     <style>
         body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #0a0a1a; overflow: hidden; }
         #network { width: 100vw; height: 100vh; background: #0a0a1a; }
         
-        /* 控制按鈕群組 */
         .controls {
             position: absolute;
             top: 20px;
@@ -37,10 +36,28 @@
             background: #2d3e4e;
         }
         
-        /* 固定節點列表 - 右上，手機版改為底部可折疊 */
-        .fixed-list {
+        .lang-switch {
             position: absolute;
             top: 20px;
+            right: 20px;
+            background: rgba(0,0,0,0.7);
+            padding: 6px 12px;
+            border-radius: 8px;
+            z-index: 31;
+            backdrop-filter: blur(4px);
+            font-size: 12px;
+            cursor: pointer;
+            color: #88aaff;
+            font-family: monospace;
+            border: 1px solid #2a3a4a;
+        }
+        .lang-switch:hover {
+            background: #1e2a3a;
+        }
+        
+        .fixed-list {
+            position: absolute;
+            top: 70px;
             right: 20px;
             background: rgba(0,0,0,0.8);
             backdrop-filter: blur(8px);
@@ -97,7 +114,6 @@
             margin-left: 8px;
         }
         
-        /* 資訊面板 - 可拖曳、可關閉 */
         .info-panel {
             position: absolute;
             bottom: 20px;
@@ -107,7 +123,7 @@
             color: #eee;
             padding: 12px 18px;
             border-radius: 12px;
-            font-size: 12px;
+            font-size: 13px;
             font-family: monospace;
             max-width: 320px;
             border-left: 4px solid #38bdf8;
@@ -146,6 +162,7 @@
             margin: 4px 0;
             word-break: break-word;
             cursor: default;
+            line-height: 1.6;
         }
         
         .status {
@@ -162,7 +179,6 @@
             z-index: 20;
         }
         
-        /* 響應式：手機版調整佈局 */
         @media (max-width: 768px) {
             .controls {
                 top: 10px;
@@ -172,6 +188,12 @@
             }
             .controls button {
                 padding: 3px 8px;
+                font-size: 10px;
+            }
+            .lang-switch {
+                top: 10px;
+                right: 10px;
+                padding: 4px 10px;
                 font-size: 10px;
             }
             .fixed-list {
@@ -201,6 +223,9 @@
                 padding: 8px 12px;
                 cursor: default;
             }
+            .info-panel p {
+                line-height: 1.5;
+            }
             .status {
                 bottom: 10px;
                 left: 10px;
@@ -217,6 +242,7 @@
     <button id="relayoutBtn">✨ 重新布局</button>
     <button id="togglePhysicsBtn">⏸️ 停止物理</button>
 </div>
+<div class="lang-switch" id="langSwitch">English</div>
 <div class="fixed-list" id="fixedList">
     <h4 id="fixedListHeader">📍 固定節點 <span class="toggle-icon">▼</span></h4>
     <ul id="fixedListItems">
@@ -236,10 +262,93 @@
     let physicsEnabled = true;
     let nodesDataSet = null;
     let edgesDataSet = null;
+    let currentLang = 'zh';
+    let originalData = null;
 
-    // 折疊固定列表（手機上用）
+    const texts = {
+        zh: {
+            reset: '🔄 重置視角',
+            relayout: '✨ 重新布局',
+            togglePhysicsOn: '⏸️ 停止物理',
+            togglePhysicsOff: '▶️ 啟動物理',
+            fixedListTitle: '📍 固定節點',
+            noFixed: '尚無固定節點',
+            unpin: '解除',
+            infoPanelDefaultTitle: '🌌 點擊節點',
+            infoPanelDefaultMsg: '點擊任意元件查看詳細資訊<br>右鍵可固定/解除固定',
+            statusDefault: '🧠 節點大小 = 行數 | 顏色越紅 = 依賴越多',
+            statusStable: '✅ 布局穩定，可拖曳節點 | 右鍵固定節點',
+            statusPinned: (name) => `📍 已固定 ${name}`,
+            statusUnpinned: (name) => `🔓 已解除固定 ${name}`,
+            statusPhysicsOn: '⚛️ 物理模擬已開啟',
+            statusPhysicsOff: '🔒 物理模擬已關閉，節點靜止',
+            statusResetView: '👁️ 視角已重置',
+            statusRelayout: '🌀 重新布局中...',
+            infoDetail: {
+                path: '路徑：',
+                lines: '行數：',
+                deps: '依賴：',
+                none: '無'
+            },
+            clickNode: '🔍 '
+        },
+        en: {
+            reset: '🔄 Reset View',
+            relayout: '✨ Relayout',
+            togglePhysicsOn: '⏸️ Stop Physics',
+            togglePhysicsOff: '▶️ Start Physics',
+            fixedListTitle: '📍 Pinned Nodes',
+            noFixed: 'No pinned nodes',
+            unpin: 'Unpin',
+            infoPanelDefaultTitle: '🌌 Click a Node',
+            infoPanelDefaultMsg: 'Click any component to see details<br>Right-click to pin/unpin',
+            statusDefault: '🧠 Node size = lines of code | Redder = more dependencies',
+            statusStable: '✅ Layout stable. Drag nodes | Right-click to pin',
+            statusPinned: (name) => `📍 Pinned ${name}`,
+            statusUnpinned: (name) => `🔓 Unpinned ${name}`,
+            statusPhysicsOn: '⚛️ Physics enabled',
+            statusPhysicsOff: '🔒 Physics disabled, nodes frozen',
+            statusResetView: '👁️ View reset',
+            statusRelayout: '🌀 Relayout in progress...',
+            infoDetail: {
+                path: 'Path: ',
+                lines: 'Lines: ',
+                deps: 'Dependencies: ',
+                none: 'none'
+            },
+            clickNode: '🔍 '
+        }
+    };
+
+    function updateUILanguage() {
+        const t = texts[currentLang];
+        document.getElementById('resetViewBtn').innerHTML = t.reset;
+        document.getElementById('relayoutBtn').innerHTML = t.relayout;
+        const physicsBtn = document.getElementById('togglePhysicsBtn');
+        physicsBtn.innerHTML = physicsEnabled ? t.togglePhysicsOn : t.togglePhysicsOff;
+        const fixedHeader = document.getElementById('fixedListHeader');
+        fixedHeader.innerHTML = t.fixedListTitle + ' <span class="toggle-icon">▼</span>';
+        const infoPanel = document.getElementById('infoPanel');
+        if (infoPanel.innerHTML.includes('點擊任意元件') || infoPanel.innerHTML.includes('Click any component')) {
+            infoPanel.innerHTML = `<h4>${t.infoPanelDefaultTitle} <button class="close-btn" id="closeInfoPanel">✕</button></h4>
+                                    <p>${t.infoPanelDefaultMsg}</p>`;
+            document.getElementById('closeInfoPanel').addEventListener('click', () => {
+                infoPanel.style.display = 'none';
+            });
+        }
+        const statusMsg = document.getElementById('statusMsg');
+        // 更新默認狀態
+        if (statusMsg.innerHTML.includes('節點大小') || statusMsg.innerHTML.includes('Node size')) {
+            statusMsg.innerHTML = t.statusDefault;
+        }
+        // 更新穩定狀態
+        if (statusMsg.innerHTML.includes('布局穩定') || statusMsg.innerHTML.includes('Layout stable')) {
+            statusMsg.innerHTML = t.statusStable;
+        }
+        updateFixedList();
+    }
+
     let fixedListCollapsed = false;
-    const fixedListEl = document.getElementById('fixedList');
     const fixedListHeader = document.getElementById('fixedListHeader');
     const fixedListItemsContainer = document.getElementById('fixedListItems');
     function toggleFixedList() {
@@ -259,7 +368,6 @@
         fixedListHeader.querySelector('.toggle-icon').innerHTML = '▶';
     }
 
-    // 可拖曳資訊面板（桌面版）
     const infoPanel = document.getElementById('infoPanel');
     let isDragging = false;
     let dragOffsetX = 0, dragOffsetY = 0;
@@ -267,7 +375,6 @@
         if (!isDragging) return;
         let left = e.clientX - dragOffsetX;
         let top = e.clientY - dragOffsetY;
-        // 邊界限制
         left = Math.min(window.innerWidth - infoPanel.offsetWidth - 10, Math.max(10, left));
         top = Math.min(window.innerHeight - infoPanel.offsetHeight - 10, Math.max(10, top));
         infoPanel.style.left = left + 'px';
@@ -283,7 +390,6 @@
         infoPanel.classList.remove('dragging');
     }
     infoPanel.addEventListener('mousedown', (e) => {
-        // 避免點擊關閉按鈕時觸發拖曳
         if (e.target.classList.contains('close-btn')) return;
         isDragging = true;
         const rect = infoPanel.getBoundingClientRect();
@@ -298,24 +404,24 @@
         document.addEventListener('mouseup', onMouseUp);
         e.preventDefault();
     });
-    // 關閉面板
     document.getElementById('closeInfoPanel').addEventListener('click', () => {
         infoPanel.style.display = 'none';
     });
-    // 可以增加一個重置顯示的方式，例如雙擊狀態欄重置，這裡先不處理
 
     function updateFixedList() {
+        if (!nodesDataSet) return;
+        const t = texts[currentLang];
         const nodes = nodesDataSet.get();
         const fixedNodes = nodes.filter(n => n.fixed === true);
         const listContainer = document.getElementById('fixedListItems');
         if (fixedNodes.length === 0) {
-            listContainer.innerHTML = '<li style="color:#666">尚無固定節點</li>';
+            listContainer.innerHTML = `<li style="color:#666">${t.noFixed}</li>`;
             return;
         }
         listContainer.innerHTML = fixedNodes.map(node => `
             <li data-node-id="${node.id}">
                 <span>🔒 ${node.label}</span>
-                <button class="unpin-btn" data-node-id="${node.id}">解除</button>
+                <button class="unpin-btn" data-node-id="${node.id}">${t.unpin}</button>
             </li>
         `).join('');
         document.querySelectorAll('.unpin-btn').forEach(btn => {
@@ -330,10 +436,11 @@
     function unpinNode(nodeId) {
         nodesDataSet.update({ id: nodeId, fixed: false, physics: true });
         updateFixedList();
-        document.getElementById('statusMsg').innerHTML = `🔓 已解除固定 ${nodeId}`;
+        const t = texts[currentLang];
+        document.getElementById('statusMsg').innerHTML = t.statusUnpinned(nodeId);
         setTimeout(() => {
-            if (document.getElementById('statusMsg').innerHTML.includes('解除固定')) {
-                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+            if (document.getElementById('statusMsg').innerHTML.includes(t.statusUnpinned(nodeId).slice(0, 5))) {
+                document.getElementById('statusMsg').innerHTML = t.statusStable;
             }
         }, 2000);
     }
@@ -341,10 +448,11 @@
     function pinNode(nodeId) {
         nodesDataSet.update({ id: nodeId, fixed: true, physics: false });
         updateFixedList();
-        document.getElementById('statusMsg').innerHTML = `📍 已固定 ${nodeId}`;
+        const t = texts[currentLang];
+        document.getElementById('statusMsg').innerHTML = t.statusPinned(nodeId);
         setTimeout(() => {
-            if (document.getElementById('statusMsg').innerHTML.includes('固定')) {
-                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
+            if (document.getElementById('statusMsg').innerHTML.includes(t.statusPinned(nodeId).slice(0, 5))) {
+                document.getElementById('statusMsg').innerHTML = t.statusStable;
             }
         }, 2000);
     }
@@ -352,157 +460,204 @@
     fetch('./galaxy.json')
         .then(res => res.json())
         .then(data => {
-            const nodes = [];
-            const edges = [];
-            const nodeMap = new Map();
-
-            let maxDeps = 0;
-            data.forEach(comp => {
-                maxDeps = Math.max(maxDeps, comp.dependencies.length);
-            });
-            if (maxDeps === 0) maxDeps = 1;
-
-            data.forEach(comp => {
-                const id = comp.name;
-                const deps = comp.dependencies.length;
-                const hue = 120 - (deps / maxDeps) * 120;
-                nodeMap.set(id, {
-                    id: id,
-                    label: comp.name,
-                    title: `路徑: ${comp.path}\n行數: ${comp.lines}\n依賴: ${comp.dependencies.join(', ') || '無'}`,
-                    value: comp.lines,
-                    color: {
-                        background: `hsl(${hue}, 70%, 55%)`,
-                        border: '#ffffff',
-                        highlight: {
-                            background: `hsl(${hue}, 80%, 65%)`,
-                            border: '#ffcc88'
-                        }
-                    },
-                    fixed: false
-                });
-            });
-
-            for (let node of nodeMap.values()) {
-                nodes.push(node);
-            }
-
-            data.forEach(comp => {
-                const from = comp.name;
-                comp.dependencies.forEach(to => {
-                    if (nodeMap.has(to)) {
-                        edges.push({ from, to, arrows: 'to', smooth: { type: 'curvedCW' }, color: { color: '#88aaff' } });
-                    }
-                });
-            });
-
-            nodesDataSet = new vis.DataSet(nodes);
-            edgesDataSet = new vis.DataSet(edges);
-
-            const container = document.getElementById('network');
-            const options = {
-                nodes: {
-                    shape: 'dot',
-                    scaling: {
-                        min: 12,
-                        max: 70,
-                        label: { enabled: true, min: 12, max: 28 }
-                    },
-                    font: { color: '#ffffff', size: 14, face: 'monospace', strokeWidth: 1, strokeColor: '#000000' },
-                    borderWidth: 2,
-                    shadow: true
-                },
-                edges: {
-                    width: 2,
-                    smooth: { type: 'continuous', roundness: 0.5 },
-                    arrows: { to: { enabled: true, scaleFactor: 0.8 } }
-                },
-                physics: {
-                    enabled: true,
-                    stabilization: { iterations: 300, fit: true },
-                    barnesHut: { gravitationalConstant: -6000, centralGravity: 0.2, springLength: 180, springConstant: 0.04, damping: 0.09 }
-                },
-                interaction: {
-                    hover: true,
-                    tooltipDelay: 200,
-                    zoomView: true,
-                    dragView: true,
-                    dragNodes: true
-                }
-            };
-            network = new vis.Network(container, { nodes: nodesDataSet, edges: edgesDataSet }, options);
-
-            network.once('stabilizationIterationsDone', () => {
-                network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
-                document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
-            });
-
-            network.on('click', (params) => {
-                if (params.nodes.length) {
-                    const nodeId = params.nodes[0];
-                    const node = nodesDataSet.get(nodeId);
-                    const depsList = data.find(c => c.name === nodeId)?.dependencies || [];
-                    document.getElementById('infoPanel').innerHTML = `
-                        <h4>🔍 ${node.label} <button class="close-btn" id="closeInfoPanel">✕</button></h4>
-                        <p><strong>路徑：</strong>${node.title.split('\n')[0].replace('路徑: ', '')}</p>
-                        <p><strong>行數：</strong>${node.value}</p>
-                        <p><strong>依賴：</strong>${depsList.join(', ') || '無'}</p>
-                    `;
-                    // 重新綁定關閉按鈕事件（因為面板內容被重寫）
-                    document.getElementById('closeInfoPanel').addEventListener('click', () => {
-                        infoPanel.style.display = 'none';
-                    });
-                    // 讓面板顯示（如果之前關閉了）
-                    infoPanel.style.display = 'block';
-                }
-            });
-
-            network.on('oncontext', (params) => {
-                params.event.preventDefault();
-                if (params.nodes.length) {
-                    const nodeId = params.nodes[0];
-                    const node = nodesDataSet.get(nodeId);
-                    if (node.fixed) {
-                        unpinNode(nodeId);
-                    } else {
-                        pinNode(nodeId);
-                    }
-                }
-                return false;
-            });
-
-            document.getElementById('resetViewBtn').onclick = () => {
-                network.fit();
-                document.getElementById('statusMsg').innerHTML = '👁️ 視角已重置';
-                setTimeout(() => document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點', 1500);
-            };
-            document.getElementById('relayoutBtn').onclick = () => {
-                network.setOptions({ physics: { enabled: true } });
-                network.stabilize();
-                document.getElementById('statusMsg').innerHTML = '🌀 重新布局中...';
-                network.once('stabilizationIterationsDone', () => {
-                    network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
-                    document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
-                });
-            };
-            document.getElementById('togglePhysicsBtn').onclick = () => {
-                physicsEnabled = !physicsEnabled;
-                network.setOptions({ physics: { enabled: physicsEnabled } });
-                document.getElementById('togglePhysicsBtn').innerHTML = physicsEnabled ? '⏸️ 停止物理' : '▶️ 啟動物理';
-                document.getElementById('statusMsg').innerHTML = physicsEnabled ? '⚛️ 物理模擬已開啟' : '🔒 物理模擬已關閉，節點靜止';
-                setTimeout(() => {
-                    if (document.getElementById('statusMsg').innerHTML.includes('物理')) {
-                        document.getElementById('statusMsg').innerHTML = '✅ 布局穩定，可拖曳節點 | 右鍵固定節點';
-                    }
-                }, 2000);
-            };
-
-            updateFixedList();
+            originalData = data;
+            initNetwork(data);
         })
         .catch(err => {
             console.error(err);
             document.body.innerHTML = '<div style="color:red;padding:20px;text-align:center">❌ 無法載入 galaxy.json，請確認檔案存在且格式正確。</div>';
         });
+
+    function initNetwork(data) {
+        const nodes = [];
+        const edges = [];
+        const nodeMap = new Map();
+
+        let maxDeps = 0;
+        data.forEach(comp => {
+            maxDeps = Math.max(maxDeps, comp.dependencies.length);
+        });
+        if (maxDeps === 0) maxDeps = 1;
+
+        data.forEach(comp => {
+            const id = comp.name;
+            const deps = comp.dependencies.length;
+            const hue = 120 - (deps / maxDeps) * 120;
+            nodeMap.set(id, {
+                id: id,
+                label: comp.name,
+                title: `路徑: ${comp.path}\n行數: ${comp.lines}\n依賴: ${comp.dependencies.join(', ') || '無'}`,
+                value: comp.lines,
+                color: {
+                    background: `hsl(${hue}, 70%, 55%)`,
+                    border: 'rgba(255,255,255,0.8)',
+                    highlight: {
+                        background: `hsl(${hue}, 80%, 65%)`,
+                        border: '#ffcc88'
+                    }
+                },
+                shadow: {
+                    enabled: true,
+                    color: 'rgba(255,255,255,0.3)',
+                    size: 5,
+                    x: 0,
+                    y: 0
+                },
+                borderWidth: 1,
+                fixed: false
+            });
+        });
+
+        for (let node of nodeMap.values()) {
+            nodes.push(node);
+        }
+
+        data.forEach(comp => {
+            const from = comp.name;
+            comp.dependencies.forEach(to => {
+                if (nodeMap.has(to)) {
+                    edges.push({ from, to, arrows: 'to', smooth: { type: 'curvedCW' }, color: { color: '#88aaff' } });
+                }
+            });
+        });
+
+        nodesDataSet = new vis.DataSet(nodes);
+        edgesDataSet = new vis.DataSet(edges);
+
+        const container = document.getElementById('network');
+        const options = {
+            nodes: {
+                shape: 'dot',
+                scaling: {
+                    min: 12,
+                    max: 70,
+                    label: { enabled: true, min: 12, max: 28 }
+                },
+                font: { color: '#ffffff', size: 14, face: 'monospace', strokeWidth: 1, strokeColor: '#000000' },
+                borderWidth: 1,
+                shadow: true
+            },
+            edges: {
+                width: 2,
+                smooth: { type: 'continuous', roundness: 0.5 },
+                arrows: { to: { enabled: true, scaleFactor: 0.8 } }
+            },
+            physics: {
+                enabled: true,
+                stabilization: { iterations: 300, fit: true },
+                barnesHut: { gravitationalConstant: -6000, centralGravity: 0.2, springLength: 180, springConstant: 0.04, damping: 0.09 }
+            },
+            interaction: {
+                hover: true,
+                tooltipDelay: 200,
+                zoomView: true,
+                dragView: true,
+                dragNodes: true
+            }
+        };
+        network = new vis.Network(container, { nodes: nodesDataSet, edges: edgesDataSet }, options);
+
+        network.once('stabilizationIterationsDone', () => {
+            network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
+            document.getElementById('statusMsg').innerHTML = texts[currentLang].statusStable;
+        });
+
+        network.on('click', (params) => {
+            if (params.nodes.length) {
+                const nodeId = params.nodes[0];
+                const node = nodesDataSet.get(nodeId);
+                const depsList = data.find(c => c.name === nodeId)?.dependencies || [];
+                const t = texts[currentLang];
+                const infoHtml = `
+                    <h4>${t.clickNode}${node.label} <button class="close-btn" id="closeInfoPanel">✕</button></h4>
+                    <p><strong>${t.infoDetail.path}</strong>${node.title.split('\n')[0].replace('路徑: ', '').replace('Path: ', '')}</p>
+                    <p><strong>${t.infoDetail.lines}</strong>${node.value}</p>
+                    <p><strong>${t.infoDetail.deps}</strong>${depsList.join(', ') || t.infoDetail.none}</p>
+                `;
+                document.getElementById('infoPanel').innerHTML = infoHtml;
+                document.getElementById('closeInfoPanel').addEventListener('click', () => {
+                    infoPanel.style.display = 'none';
+                });
+                infoPanel.style.display = 'block';
+            }
+        });
+
+        network.on('oncontext', (params) => {
+            params.event.preventDefault();
+            if (params.nodes.length) {
+                const nodeId = params.nodes[0];
+                const node = nodesDataSet.get(nodeId);
+                if (node.fixed) {
+                    unpinNode(nodeId);
+                } else {
+                    pinNode(nodeId);
+                }
+            }
+            return false;
+        });
+
+        document.getElementById('resetViewBtn').onclick = () => {
+            network.fit();
+            const t = texts[currentLang];
+            document.getElementById('statusMsg').innerHTML = t.statusResetView;
+            setTimeout(() => document.getElementById('statusMsg').innerHTML = t.statusStable, 1500);
+        };
+        document.getElementById('relayoutBtn').onclick = () => {
+            network.setOptions({ physics: { enabled: true } });
+            network.stabilize();
+            const t = texts[currentLang];
+            document.getElementById('statusMsg').innerHTML = t.statusRelayout;
+            network.once('stabilizationIterationsDone', () => {
+                network.setOptions({ physics: { barnesHut: { gravitationalConstant: -4000, springLength: 200 } } });
+                document.getElementById('statusMsg').innerHTML = t.statusStable;
+            });
+        };
+        document.getElementById('togglePhysicsBtn').onclick = () => {
+            physicsEnabled = !physicsEnabled;
+            network.setOptions({ physics: { enabled: physicsEnabled } });
+            const t = texts[currentLang];
+            document.getElementById('togglePhysicsBtn').innerHTML = physicsEnabled ? t.togglePhysicsOn : t.togglePhysicsOff;
+            document.getElementById('statusMsg').innerHTML = physicsEnabled ? t.statusPhysicsOn : t.statusPhysicsOff;
+            setTimeout(() => {
+                if (document.getElementById('statusMsg').innerHTML.includes(t.statusPhysicsOn) ||
+                    document.getElementById('statusMsg').innerHTML.includes(t.statusPhysicsOff)) {
+                    document.getElementById('statusMsg').innerHTML = t.statusStable;
+                }
+            }, 2000);
+        };
+
+        updateFixedList();
+        updateUILanguage();
+    }
+
+    document.getElementById('langSwitch').addEventListener('click', () => {
+        currentLang = currentLang === 'zh' ? 'en' : 'zh';
+        const btn = document.getElementById('langSwitch');
+        btn.innerText = currentLang === 'zh' ? 'English' : '中文';
+        updateUILanguage();
+        const infoPanel = document.getElementById('infoPanel');
+        if (infoPanel.innerHTML.includes('🔍') && originalData) {
+            const match = infoPanel.innerHTML.match(/🔍\s*([^<]+)/);
+            if (match && match[1]) {
+                const nodeName = match[1].trim();
+                const node = nodesDataSet?.get(nodeName);
+                if (node) {
+                    const depsList = originalData.find(c => c.name === nodeName)?.dependencies || [];
+                    const t = texts[currentLang];
+                    const infoHtml = `
+                        <h4>${t.clickNode}${node.label} <button class="close-btn" id="closeInfoPanel">✕</button></h4>
+                        <p><strong>${t.infoDetail.path}</strong>${node.title.split('\n')[0].replace('路徑: ', '').replace('Path: ', '')}</p>
+                        <p><strong>${t.infoDetail.lines}</strong>${node.value}</p>
+                        <p><strong>${t.infoDetail.deps}</strong>${depsList.join(', ') || t.infoDetail.none}</p>
+                    `;
+                    infoPanel.innerHTML = infoHtml;
+                    document.getElementById('closeInfoPanel').addEventListener('click', () => {
+                        infoPanel.style.display = 'none';
+                    });
+                }
+            }
+        }
+    });
 </script>
 </body>
 </html>

@@ -31,14 +31,14 @@
 ### 使用 npx（無需安裝）
 
 ```bash
-npx react-galaxy scan ./src
-npx react-galaxy view
+npx react-dep-galaxy scan ./src
+npx react-dep-galaxy view
 ```
 
 ### 本地安裝後使用
 
 ```bash
-npm install -g react-galaxy
+npm install -g react-dep-galaxy
 galaxy scan ./src
 galaxy view
 ```
@@ -100,7 +100,7 @@ npm link          # 將指令 `galaxy` 連結到全域
 2. Branch: `main`，Folder: `/docs`
 3. 點擊 **Save**
 
-稍候一分鐘，即可透過 `https://[yourName].github.io/react-galaxy/` 訪問線上展示。
+稍候一分鐘，即可透過 `https://<你的GitHub用戶名>.github.io/<你的倉庫名>/` 訪問線上展示。
 
 ---
 
