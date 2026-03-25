@@ -9,6 +9,7 @@
   "files": [
     "bin/",
     "analyze-components.mjs",
+    "docs/",
     "README.md",
     "LICENSE"
   ],
